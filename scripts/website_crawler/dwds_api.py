@@ -4,15 +4,17 @@
 # @FileName : dwds_api.py
 # @Author : convexwf@gmail.com
 # @CreateDate : 2024-06-06 18:01
-# @UpdateTime : 2024-06-06 18:01
+# @UpdateTime : 2024-06-26 15:52
 
 import csv
 import json
 import os
+import random
+import time
 from collections import defaultdict
 
 import requests
-from conjugation import fetch_reverso_conjugation
+from reverso_conjugation import fetch_reverso_conjugation
 
 output_dir = "output"
 
@@ -48,20 +50,18 @@ def fetch_goethe_words():
             json.dump(json_obj, f, ensure_ascii=False, indent=2)
 
 
-def fetch_word_ipa(word_list: list, count: int = 10):
+def fetch_word_ipa(word):
     """
     Fetch the IPA of the given word list from the DWDS API
     """
     base_url = "https://www.dwds.de/api/ipa/?q={word}"
 
-    result = []
-    for idx in range(0, len(word_list), count):
-        sub_list = word_list[idx : idx + count]
-        url = base_url.format(word="|".join(sub_list))
-        response = requests.get(url)
-        response.raise_for_status()
-        result.extend(response.json())
-    return result
+    url = base_url.format(word=word)
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.text} for {url}")
+        return None
+    return response.json()
 
 
 def check_goethe_words():
@@ -94,6 +94,39 @@ def check_goethe_words():
                 )
     with open(
         f"{output_dir}/goethe_word/goethe_word_list.json", "w", encoding="utf-8"
+    ) as f:
+        json.dump(goethe_word_list, f, ensure_ascii=False, indent=2)
+
+
+def check_goethe_word_ipa():
+    """
+    Check the IPA of the Goethe words
+    """
+    with open(
+        f"{output_dir}/goethe_word/goethe_word_list.json", "r", encoding="utf-8"
+    ) as f:
+        goethe_word_list = json.load(f)
+
+    for i, goethe_word in enumerate(goethe_word_list):
+        Lemma = goethe_word["Lemma"]
+        if "dwds_ipa" in goethe_word:
+            continue
+        time.sleep(random.uniform(0.1, 3))
+        ipa_dict = fetch_word_ipa(Lemma)
+        if ipa_dict:
+            goethe_word["dwds_ipa"] = ipa_dict
+            print(f"Successfully fetched the IPA for the word: {Lemma}")
+        else:
+            print(f"******* Error: Failed to fetch the IPA for the word: {Lemma}")
+
+        if i % 50 == 0:
+            with open(
+                f"{output_dir}/goethe_word/goethe_word_list.json", "w", encoding="utf-8"
+            ) as f:
+                json.dump(goethe_word_list, f, ensure_ascii=False, indent=2)
+
+    with open(
+        f"{output_dir}/goethe_word/goethe_word_list.json", "w+", encoding="utf-8"
     ) as f:
         json.dump(goethe_word_list, f, ensure_ascii=False, indent=2)
 
@@ -162,6 +195,5 @@ def extract_goethe_verb_conjugation():
 
 if __name__ == "__main__":
     # fetch_goethe_words()
-    # extract_Wortarten_from_csv()
     # check_goethe_words()
-    extract_goethe_verb_conjugation()
+    check_goethe_word_ipa()
