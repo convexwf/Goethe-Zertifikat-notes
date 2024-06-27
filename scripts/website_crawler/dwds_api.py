@@ -4,7 +4,7 @@
 # @FileName : dwds_api.py
 # @Author : convexwf@gmail.com
 # @CreateDate : 2024-06-06 18:01
-# @UpdateTime : 2024-06-26 15:52
+# @UpdateTime : 2024-06-27 17:44
 
 import csv
 import json
@@ -64,6 +64,22 @@ def fetch_word_ipa(word):
     return response.json()
 
 
+def fetch_word_freq(word):
+    """
+    Fetch the frequency of the given word list from the DWDS API
+    """
+    base_url = "https://www.dwds.de/api/frequency/?q={word}"
+
+    url = base_url.format(word=word)
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.text} for {url}")
+        return None
+    response_dict = response.json()
+    response_dict.pop("q")
+    return response_dict
+
+
 def check_goethe_words():
     """
     Check the Goethe words
@@ -118,6 +134,39 @@ def check_goethe_word_ipa():
             print(f"Successfully fetched the IPA for the word: {Lemma}")
         else:
             print(f"******* Error: Failed to fetch the IPA for the word: {Lemma}")
+
+        if i % 50 == 0:
+            with open(
+                f"{output_dir}/goethe_word/goethe_word_list.json", "w", encoding="utf-8"
+            ) as f:
+                json.dump(goethe_word_list, f, ensure_ascii=False, indent=2)
+
+    with open(
+        f"{output_dir}/goethe_word/goethe_word_list.json", "w+", encoding="utf-8"
+    ) as f:
+        json.dump(goethe_word_list, f, ensure_ascii=False, indent=2)
+
+
+def check_goethe_word_freq():
+    """
+    Check the frequency of the Goethe words
+    """
+    with open(
+        f"{output_dir}/goethe_word/goethe_word_list.json", "r", encoding="utf-8"
+    ) as f:
+        goethe_word_list = json.load(f)
+
+    for i, goethe_word in enumerate(goethe_word_list):
+        Lemma = goethe_word["Lemma"]
+        if "dwds_freq" in goethe_word:
+            continue
+        time.sleep(random.uniform(0.1, 3))
+        freq_dict = fetch_word_freq(Lemma)
+        if freq_dict:
+            goethe_word["dwds_freq"] = freq_dict
+            print(f"Successfully fetched the frequency for the word: {Lemma}")
+        else:
+            print(f"******* Error: Failed to fetch the frequency for the word: {Lemma}")
 
         if i % 50 == 0:
             with open(
@@ -196,4 +245,5 @@ def extract_goethe_verb_conjugation():
 if __name__ == "__main__":
     # fetch_goethe_words()
     # check_goethe_words()
-    check_goethe_word_ipa()
+    # check_goethe_word_ipa()
+    check_goethe_word_freq()
